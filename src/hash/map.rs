@@ -31,11 +31,25 @@ use std::iter::{FromIterator, FusedIterator, Sum};
 use std::mem;
 use std::ops::{Add, Index, IndexMut};
 
+use gc::{custom_trace, Finalize, Trace};
+
 use crate::nodes::hamt::{
     hash_key, Drain as NodeDrain, HashBits, HashValue, Iter as NodeIter, IterMut as NodeIterMut,
     Node,
 };
 use crate::util::{Pool, PoolRef, Ref};
+
+// This code comes from <https://docs.rs/gc/0.4.1/src/gc/trace.rs.html#317>
+impl<K: Eq + Hash + Trace, V: Trace, S: BuildHasher> Finalize for HashMap<K, V, S> {}
+#[allow(unsafe_code)]
+unsafe impl<K: Eq + Hash + Trace, V: Trace, S: BuildHasher> Trace for HashMap<K, V, S> {
+    custom_trace!(this, {
+        for (k, v) in this.iter() {
+            mark(k);
+            mark(v);
+        }
+    });
+}
 
 /// Construct a hash map from a sequence of key/value pairs.
 ///
